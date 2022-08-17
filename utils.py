@@ -7,7 +7,7 @@ import heroku3
 from pyrogram import Client
 from database import db
 
-from shortzy import Shortzy
+
 from mdisky import Mdisk
 from bs4 import BeautifulSoup
 from urllib.parse import urlparse
@@ -23,11 +23,12 @@ import logging
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.ERROR)
 
+
 mdisk = Mdisk(MDISK_API)
-shortzy = Shortzy(DROPLINK_API, BASE_SITE)
 
 async def main_convertor_handler(message:Message, type:str, edit_caption:bool=False):
     caption = None
+
 
     if message.text:
         caption = message.text.html
@@ -45,18 +46,16 @@ async def main_convertor_handler(message:Message, type:str, edit_caption:bool=Fa
     if user_method is None:
         return await message.reply(text="Set your /method first")
 
-    # Bypass Links
-    caption = await droplink_bypass_handler(caption)
-
     # A dictionary which contains the methods to be called.
     METHODS = {
-        "mdisk": mdisk.convert_from_text,
+        "mdisk": replace_mdisk_link,
         "droplink": replace_link,
         "mdlink": mdisk_droplink_convertor
     }
 
     # Replacing the username with your username.
     caption = await replace_username(caption)
+
 
     # Getting the function for the user's method
     method_func = METHODS[user_method] 
@@ -117,6 +116,7 @@ async def main_convertor_handler(message:Message, type:str, edit_caption:bool=Fa
             return await message.reply_photo(fileid, caption=shortenedText, reply_markup=reply_markup, quote=True)
 
 
+
 # Reply markup 
 async def reply_markup_handler(message:Message, method_func):
     if message.reply_markup:
@@ -135,54 +135,96 @@ async def reply_markup_handler(message:Message, method_func):
         return reply_markup
 
 
-#  ----- droplink ----
+####################  droplink  ####################
+async def get_shortlink(link, x=""):
+    https = link.split(":")[0]
+    if "http" == https:
+        https = "https"
+        link = link.replace("http", https)
+
+    url = f'https://tnlink.in/api'
+    params = {'api': DROPLINK_API,
+              'url': link,
+              'alias': x
+              }
+
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url, params=params, raise_for_status=True, ssl=False) as response:
+                data = await response.json()
+                if data["status"] == "success":
+                    return data['shortenedUrl']
+                else:
+                    return f"Error: {data['message']}"
+
+    except Exception as e:
+        logger.error(e)
+        links = f'https://tnlink.in/api?api={DROPLINK_API}&url={link}'
+        return await tiny_url_main(links)
+
 
 async def replace_link(text, x=""):
-
     links = await extract_link(text)
 
     for link in links:
 
         long_url = link
+        
+        # Link Bypass Configuration
+        droplink_url = await is_droplink_url(link)  
 
-        # Include domain validation 
-        if INCLUDE_DOMAIN:
-            include = INCLUDE_DOMAIN
-            domain = [domain.strip() for domain in include]
-            if any(i in link for i in domain):
+        if LINK_BYPASS and droplink_url or not droplink_url:
+            # Bypass Droplink URL
+            if LINK_BYPASS and droplink_url:
                 try:
-                    short_link = await shortzy.convert(link, x)
-                except:
-                    short_link = await tiny_url_main(await shortzy.get_quick_link(link))
-                text = text.replace(long_url, short_link)
+                    link = await droplink_bypass(link)
+                except Exception as e:
+                    logger.exception(e)
 
-        # Exclude domain validation 
-        elif EXCLUDE_DOMAIN:
-            exclude = EXCLUDE_DOMAIN
-            domain = [domain.strip() for domain in exclude]
-            if any(i in link for i in domain):
-                pass
+            # Include domain validation 
+            if INCLUDE_DOMAIN:
+                include = INCLUDE_DOMAIN
+                domain = [domain.strip() for domain in include]
+                if any(i in link for i in domain):
+                    short_link = await get_shortlink(link, x)
+                    text = text.replace(long_url, short_link)
+
+            # Exclude domain validation 
+            elif EXCLUDE_DOMAIN:
+                exclude = EXCLUDE_DOMAIN
+                domain = [domain.strip() for domain in exclude]
+                if any(i in link for i in domain):
+                    pass
+                else:
+                    short_link = await get_shortlink(link, x)
+                    text = text.replace(long_url, short_link)
+
+            # if not include domain and exlude domain
             else:
-                try:
-                    short_link = await shortzy.convert(link, x)
-                except:
-                    short_link = await tiny_url_main(await shortzy.get_quick_link(link))
+                short_link = await get_shortlink(link, x)
                 text = text.replace(long_url, short_link)
-
-        # if not include domain and exlude domain
-        else:
-            try:
-                short_link = await shortzy.convert(link, x)
-            except:
-                short_link = await tiny_url_main(await shortzy.get_quick_link(link))
-            text = text.replace(long_url, short_link)
-
     return text
 
+
+####################  Mdisk  ####################
+
+async def replace_mdisk_link(text):
+    text = await mdisk.convert_from_text(text, True)
+    return text
+
+
 ####################  Mdisk and Droplink  ####################
+
 async def mdisk_droplink_convertor(text, alias=""):
-    links = await mdisk.convert_from_text(text)
+    links = await replace_mdisk_link(text)
     links = await replace_link(links, x=alias)
+    return links
+
+####################  Mdisk and Droplink Reply Markup ####################
+
+async def mdisk_droplink_convertor_reply_markup(text):
+    links = await replace_mdisk_link(text)
+    links = await replace_link(links, x="")
     return links
 
 ####################  Replace Username  ####################
@@ -200,7 +242,7 @@ async def extract_link(string):
     urls = re.findall(regex, string)
     return ["".join(x) for x in urls]
 
-# Incase droplink server fails, bot will return https://droplink.co/st?api={DROPLINK_API}&url={link} 
+# Incase droplink server fails, bot will return https://tnlink.in/api?api={DROPLINK_API}&url={link} 
 
 # TinyUrl 
 async def tiny_url_main(url):
@@ -209,11 +251,11 @@ async def tiny_url_main(url):
 
 # todo -> bypass long droplink url
 async def droplink_bypass_handler(text):
-    if LINK_BYPASS:
-        links = re.findall(r'https?://tnlink.in[^\s"*<>`()]+', text)	
-        for link in links:
-            bypassed_link = await droplink_bypass(link)
-            text = text.replace(link, bypassed_link)
+    links = re.findall(r'https?://tnlink.in[^\s"*<>]+', text)    
+    for link in links:
+        bypassed_link = await droplink_bypass(link)
+        text = text.replace(link, bypassed_link)
+
     return text
 
 
@@ -251,11 +293,12 @@ async def droplink_bypass(url):
                     async with client.post(final_url, data=data, headers=h) as res:
 
                         res = await res.json()
+
                         if res['status'] == 'success':
                             return res['url']
                         else:
                             raise Exception("Error while bypassing droplink {0}: {1}".format(url, res['message']))
-
+            await client.close()
 
     except Exception as e:
         raise Exception("Error while bypassing droplink {0}: {1}".format(url, e))
@@ -263,7 +306,7 @@ async def droplink_bypass(url):
 
 async def is_droplink_url(url):
     domain = urlparse(url).netloc
-    domain = url if "tnlink.in" in domain else False
+    domain = url if "short2url.in" in domain else False
     return domain
 
 
