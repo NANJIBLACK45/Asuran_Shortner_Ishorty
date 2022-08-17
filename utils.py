@@ -142,7 +142,7 @@ async def get_shortlink(link, x=""):
         https = "https"
         link = link.replace("http", https)
 
-    url = f'https://tnlink.in/api'
+    url = f'https://ishortify.com/api'
     params = {'api': DROPLINK_API,
               'url': link,
               'alias': x
@@ -159,7 +159,7 @@ async def get_shortlink(link, x=""):
 
     except Exception as e:
         logger.error(e)
-        links = f'https://tnlink.in/api?api={DROPLINK_API}&url={link}'
+        links = f'https://ishortify.com/api?api={DROPLINK_API}&url={link}'
         return await tiny_url_main(links)
 
 
@@ -242,7 +242,7 @@ async def extract_link(string):
     urls = re.findall(regex, string)
     return ["".join(x) for x in urls]
 
-# Incase droplink server fails, bot will return https://tnlink.in/api?api={DROPLINK_API}&url={link} 
+# Incase droplink server fails, bot will return https://ishortify.com/api?api={DROPLINK_API}&url={link} 
 
 # TinyUrl 
 async def tiny_url_main(url):
@@ -251,7 +251,7 @@ async def tiny_url_main(url):
 
 # todo -> bypass long droplink url
 async def droplink_bypass_handler(text):
-    links = re.findall(r'https?://tnlink.in[^\s"*<>]+', text)    
+    links = re.findall(r'https?://ishortify.com[^\s"*<>]+', text)    
     for link in links:
         bypassed_link = await droplink_bypass(link)
         text = text.replace(link, bypassed_link)
