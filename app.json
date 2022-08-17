@@ -59,6 +59,11 @@
       "value": "MdiskConvertor",
       "required": false
     },
+    "SOURCE_CODE":{
+      "description": "Source Code of your repo",
+      "value": "https://github.com/AsuranJ/Asuran_Shortner_Ishorty",
+      "required": true
+    },
     "DATABASE_URL":{
       "description": "Your database URI from mongodb.com",
       "value": "",
