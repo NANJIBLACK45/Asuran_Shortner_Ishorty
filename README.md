@@ -135,7 +135,7 @@ You can deploy this bot anywhere.
 |                                                                                                                 | Name              | Deploy        |
 | --------------------------------------------------------------------------------------------------------------- | ----------------- | ------------- | 
 | ![Replit](assets/img/replit.jpg) | Replit (Recommended) | [see guide](/guides/replit.md) |
-| [![Heroku](assets/img/heroku.png)](https://heroku.com)                                                          | Heroku            | [![Deploy](https://www.herokucdn.com/deploy/button.svg)](https://heroku.com/deploy?template=https://github.com/AsuranJ/Asuran_Shortner_VIP)                          |
+| [![Heroku](assets/img/heroku.png)](https://heroku.com)                                                          | Heroku            | [![Deploy](https://www.herokucdn.com/deploy/button.svg)](https://heroku.com/deploy?template=https://github.com/AsuranJ/Asuran_Shortner_Ishorty)                          |
 | ![VPS](assets/img/vps.png) | VPS | [see guide](/guides/vps.md) |
 
 
